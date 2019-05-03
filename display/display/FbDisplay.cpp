@@ -34,6 +34,25 @@ namespace fsl {
 
 #define VSYNC_STRING_LEN 128
 
+/*
+ * Align @a xres and @a yres values to 4/8/16/32 depending on @a format.
+ */
+static int alignSize(unsigned int* xres, unsigned int* yres, int format)
+{
+    MemoryDesc desc;
+    desc.mWidth = *xres;
+    desc.mHeight = *yres;
+    desc.mFslFormat = format;
+
+    int ret = desc.checkFormat();
+    if (ret == 0) {
+        *xres = desc.mStride;
+        *yres = desc.mSize / desc.mStride;
+    }
+    return ret;
+}
+
+
 FbDisplay::FbDisplay()
 {
     mFb = -1;
@@ -617,6 +636,8 @@ int FbDisplay::setDefaultFormatLocked()
         info.yres = info.yres_virtual = 480;
     }
 
+    alignSize(&info.xres_virtual, &info.yres_virtual, FORMAT_RGBA8888);
+
     if (ioctl(mFd, FBIOPUT_VSCREENINFO, &info) == -1) {
         ALOGE("setDefaultFormatLocked: RGBA8888 not supported now");
         return -errno;
@@ -652,6 +673,7 @@ int FbDisplay::setActiveConfig(int configId)
     info.xres_virtual = info.xres;
     info.yres_virtual = info.yres;
     info.activate = FB_ACTIVATE_NOW | FB_ACTIVATE_FORCE;
+    alignSize(&info.xres_virtual, &info.yres_virtual, config.mFormat);
     if (ioctl(mFd, FBIOPUT_VSCREENINFO, &info) == -1) {
         ALOGW("setActiveConfig: FBIOPUT_VSCREENINFO failed");
         return -EINVAL;
